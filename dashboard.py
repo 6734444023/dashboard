@@ -210,7 +210,19 @@ app.layout = html.Div(
                                         style={"fontSize": "12px"},
                                     ),
                                 ],
-                                md=4,
+                                md=3,
+                            ),
+                            dbc.Col(
+                                [
+                                    html.Label("Log Scale", style={"color": TEXT_MUTED, "fontSize": "11px"}),
+                                    dbc.Switch(
+                                        id="toggle-log",
+                                        value=False,
+                                        style={"marginTop": "4px"},
+                                    ),
+                                ],
+                                md=1,
+                                className="d-flex flex-column align-items-center",
                             ),
                         ]
                     ),
@@ -391,8 +403,9 @@ app.layout = html.Div(
     Input("filter-careunit", "value"),
     Input("filter-diag-group", "value"),
     Input("filter-los-cat", "value"),
+    Input("toggle-log", "value"),
 )
-def update_dashboard(careunits, diag_groups, los_cats):
+def update_dashboard(careunits, diag_groups, los_cats, use_log):
     dff = df.copy()
     if careunits:
         dff = dff[dff["first_careunit"].isin(careunits)]
@@ -427,10 +440,11 @@ def update_dashboard(careunits, diag_groups, los_cats):
             line_color=CHART_COLORS[i % len(CHART_COLORS)],
             fillcolor=f"rgba({','.join(str(int(CHART_COLORS[i % len(CHART_COLORS)].lstrip('#')[j:j+2], 16)) for j in (0,2,4))},0.3)",
         ))
+    yaxis_type = "log" if use_log else "linear"
     fig_box.update_layout(
         template=DARK_TEMPLATE, showlegend=False, margin=dict(l=30, r=10, t=30, b=30),
         yaxis_title="LOS (days)", title="Box and Whisker Plot",
-        title_font_size=12,
+        title_font_size=12, yaxis_type=yaxis_type,
     )
 
     # Insight 1
@@ -473,6 +487,7 @@ def update_dashboard(careunits, diag_groups, los_cats):
         template=DARK_TEMPLATE, margin=dict(l=30, r=10, t=30, b=30),
         xaxis_title="LOS in days", yaxis_title="Count",
         title="Histogram", title_font_size=12, bargap=0.05,
+        yaxis_type=yaxis_type,
     )
 
     long_stay_pct = (dff["los"] > 30).sum() / total * 100 if total else 0
@@ -499,6 +514,7 @@ def update_dashboard(careunits, diag_groups, los_cats):
         template=DARK_TEMPLATE, margin=dict(l=30, r=10, t=30, b=30),
         xaxis_title="Comorbidity Index", yaxis_title="LOS (days)",
         title="Scatter Plot", title_font_size=12,
+        yaxis_type=yaxis_type,
     )
 
     # ---- Summary takeaways ----

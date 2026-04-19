@@ -173,7 +173,7 @@ app.layout = html.Div(
             className="mb-3",
             align="center",
         ),
-        # ===== ROW 1: Overview KPIs (left) + Box Plot by Care Unit (right) =====
+        # ===== ROW 1: Overview KPIs (left) + Q1 Box Plot LOS by Top Diagnoses (right) =====
         dbc.Row(
             [
                 # --- Left: Overview panel ---
@@ -214,20 +214,17 @@ app.layout = html.Div(
                     ),
                     md=4,
                 ),
-                # --- Right: Q1 Box Plot by Care Unit ---
+                # --- Right: Q1 – Primary Diagnosis Impact on LOS ---
                 dbc.Col(
                     html.Div(
                         style=PANEL_STYLE,
                         children=[
                             html.Div(
-                                "Q1 – LOS Distribution by Care Unit",
+                                "Q1 – การวินิจฉัยโรคหลัก (Primary Diagnosis) ส่งผลต่อ LOS อย่างไร?",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="box-careunit", config=GRAPH_CONFIG, style={"height": "260px"}),
-                            html.Div(
-                                id="insight-1",
-                                style=INSIGHT_STYLE,
-                            ),
+                            dcc.Graph(id="box-diagnosis", config=GRAPH_CONFIG, style={"height": "260px"}),
+                            html.Div(id="insight-1", style=INSIGHT_STYLE),
                         ],
                     ),
                     md=8,
@@ -235,55 +232,50 @@ app.layout = html.Div(
             ],
             className="g-3 mb-3",
         ),
-        # ===== ROW 2: Top Diagnoses Bar (left) + Histogram (center) + Avg LOS by Unit (right-center) + Summary (right) =====
+        # ===== ROW 2: Q2 MICU vs SICU (left) + Q3 LOS Variation (center-left) + Avg LOS by Diagnosis (center-right) + Summary (right) =====
         dbc.Row(
             [
-                # Q2 – Top Diagnoses
+                # Q2 – Common Diseases per ICU Type (MICU vs SICU)
                 dbc.Col(
                     html.Div(
                         style=PANEL_STYLE,
                         children=[
                             html.Div(
-                                "Q2 – Top 10 Diagnoses by Admissions",
+                                "Q2 – โรคที่พบบ่อยใน MICU vs SICU",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="bar-top-diag", config=GRAPH_CONFIG, style={"height": "260px"}),
-                            html.Div(
-                                id="insight-2",
-                                style=INSIGHT_STYLE,
-                            ),
+                            dcc.Graph(id="bar-micu-sicu", config=GRAPH_CONFIG, style={"height": "280px"}),
+                            html.Div(id="insight-2", style=INSIGHT_STYLE),
                         ],
                     ),
                     md=3,
                 ),
-                # Q3 – Histogram
+                # Q3 – LOS Variation & Outlier Analysis
                 dbc.Col(
                     html.Div(
                         style=PANEL_STYLE,
                         children=[
                             html.Div(
-                                "Q3 – LOS Variation & Outliers",
+                                "Q3 – ความแตกต่างของ LOS (0–70+ วัน) สะท้อนอะไร?",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="hist-los", config=GRAPH_CONFIG, style={"height": "260px"}),
-                            html.Div(
-                                id="insight-3",
-                                style=INSIGHT_STYLE,
-                            ),
+                            dcc.Graph(id="hist-los", config=GRAPH_CONFIG, style={"height": "140px"}),
+                            dcc.Graph(id="violin-los", config=GRAPH_CONFIG, style={"height": "140px"}),
+                            html.Div(id="insight-3", style=INSIGHT_STYLE),
                         ],
                     ),
                     md=3,
                 ),
-                # Avg LOS by Care Unit
+                # Avg LOS by Top Diagnoses (supporting Q1)
                 dbc.Col(
                     html.Div(
                         style=PANEL_STYLE,
                         children=[
                             html.Div(
-                                "Avg LOS by Care Unit",
+                                "Avg LOS by Top Diagnoses",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="bar-avg-los", config=GRAPH_CONFIG, style={"height": "300px"}),
+                            dcc.Graph(id="bar-avg-diag", config=GRAPH_CONFIG, style={"height": "300px"}),
                         ],
                     ),
                     md=3,
@@ -302,7 +294,7 @@ app.layout = html.Div(
                                     html.Div("Key Takeaways:", style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "12px", "marginBottom": "6px"}),
                                     html.Div(id="summary-takeaways"),
                                 ],
-                                style={"marginBottom": "16px"},
+                                style={"marginBottom": "10px"},
                             ),
                             html.Div(
                                 [
@@ -330,13 +322,14 @@ app.layout = html.Div(
     Output("kpi-median", "children"),
     Output("kpi-max", "children"),
     Output("kpi-long-pct", "children"),
-    Output("box-careunit", "figure"),
+    Output("box-diagnosis", "figure"),
     Output("insight-1", "children"),
-    Output("bar-top-diag", "figure"),
+    Output("bar-micu-sicu", "figure"),
     Output("insight-2", "children"),
     Output("hist-los", "figure"),
+    Output("violin-los", "figure"),
     Output("insight-3", "children"),
-    Output("bar-avg-los", "figure"),
+    Output("bar-avg-diag", "figure"),
     Output("summary-takeaways", "children"),
     Output("summary-breakdown", "children"),
     Input("filter-careunit", "value"),
@@ -366,93 +359,168 @@ def update_dashboard(careunits, los_cats, use_log):
 
     yaxis_type = "log" if use_log else "linear"
 
-    # ---- Q1: Box plot by care unit (real column: first_careunit) ----
-    units = dff["first_careunit"].value_counts().head(8).index.tolist()
+    # ================================================================
+    # Q1: Box plot of LOS by Top 10 Diagnoses
+    #     → answers "การวินิจฉัยโรคหลักส่งผลต่อ LOS อย่างไร?"
+    # ================================================================
+    top10_diag = dff["long_title"].value_counts().head(10).index.tolist()
+    q1_df = dff[dff["long_title"].isin(top10_diag)]
     fig_box = go.Figure()
-    for i, unit in enumerate(units):
-        unit_data = dff[dff["first_careunit"] == unit]["los"]
+    for i, diag in enumerate(top10_diag):
+        diag_data = q1_df[q1_df["long_title"] == diag]["los"]
+        short_name = diag[:30] + "…" if len(diag) > 30 else diag
         fig_box.add_trace(go.Box(
-            y=unit_data, name=unit,
+            y=diag_data, name=short_name,
             marker_color=CHART_COLORS[i % len(CHART_COLORS)],
             line_color=CHART_COLORS[i % len(CHART_COLORS)],
             fillcolor=f"rgba({','.join(str(int(CHART_COLORS[i % len(CHART_COLORS)].lstrip('#')[j:j+2], 16)) for j in (0,2,4))},0.3)",
         ))
     fig_box.update_layout(
-        template=LIGHT_TEMPLATE, showlegend=False, margin=dict(l=30, r=10, t=30, b=30),
-        yaxis_title="LOS (days)", title="Box and Whisker Plot",
+        template=LIGHT_TEMPLATE, showlegend=False,
+        margin=dict(l=30, r=10, t=30, b=80),
+        yaxis_title="LOS (days)", title="LOS Distribution by Primary Diagnosis (Top 10)",
         title_font_size=12, yaxis_type=yaxis_type,
+        xaxis_tickangle=-35, xaxis_tickfont_size=8,
     )
 
-    # Insight 1 (computed from real data)
-    avg_by_unit = dff.groupby("first_careunit")["los"].mean().sort_values(ascending=False)
-    top2_units = avg_by_unit.head(2)
-    insight_1 = f"Key Insight #1: {top2_units.index[0]} (avg {top2_units.iloc[0]:.1f}d) and {top2_units.index[1]} (avg {top2_units.iloc[1]:.1f}d) have the longest average LOS across all care units."
+    # Insight Q1: compare diagnosis with highest vs lowest avg LOS
+    avg_by_diag = q1_df.groupby("long_title")["los"].agg(["mean", "median"]).sort_values("mean", ascending=False)
+    longest_diag = avg_by_diag.index[0][:40]
+    shortest_diag = avg_by_diag.index[-1][:40]
+    insight_1 = (
+        f'Insight Q1: "{longest_diag}" has the highest avg LOS ({avg_by_diag.iloc[0]["mean"]:.1f}d, '
+        f'median {avg_by_diag.iloc[0]["median"]:.1f}d), while "{shortest_diag}" has the lowest '
+        f'({avg_by_diag.iloc[-1]["mean"]:.1f}d). Diagnosis type significantly influences ICU stay duration.'
+    )
 
-    # ---- Q2: Top 10 diagnoses bar (real column: long_title) ----
-    top_diag = dff["long_title"].value_counts().head(10).reset_index()
-    top_diag.columns = ["Diagnosis", "Count"]
-    top_diag["Diagnosis_short"] = top_diag["Diagnosis"].str[:40]
+    # ================================================================
+    # Q2: Grouped bar – Top 5 Diagnoses in MICU vs SICU
+    #     → answers "โรคใดพบบ่อยใน MICU เทียบกับ SICU?"
+    # ================================================================
+    micu_sicu = dff[dff["first_careunit"].isin(["MICU", "SICU"])]
+    # Get top 5 diagnoses for each unit
+    micu_top5 = micu_sicu[micu_sicu["first_careunit"] == "MICU"]["long_title"].value_counts().head(5)
+    sicu_top5 = micu_sicu[micu_sicu["first_careunit"] == "SICU"]["long_title"].value_counts().head(5)
+    # Union of top diagnoses
+    union_diags = list(dict.fromkeys(micu_top5.index.tolist() + sicu_top5.index.tolist()))
 
-    fig_diag = go.Figure(go.Bar(
-        x=top_diag["Count"],
-        y=top_diag["Diagnosis_short"],
-        orientation="h",
-        marker_color=ACCENT_TEAL,
-        text=top_diag["Count"],
-        textposition="outside",
-        textfont_size=9,
+    q2_data = micu_sicu[micu_sicu["long_title"].isin(union_diags)]
+    q2_grouped = q2_data.groupby(["first_careunit", "long_title"]).size().reset_index(name="count")
+    q2_grouped["short_diag"] = q2_grouped["long_title"].str[:35]
+
+    fig_micu_sicu = go.Figure()
+    for i, unit in enumerate(["MICU", "SICU"]):
+        unit_df = q2_grouped[q2_grouped["first_careunit"] == unit]
+        fig_micu_sicu.add_trace(go.Bar(
+            y=unit_df["short_diag"], x=unit_df["count"],
+            name=unit, orientation="h",
+            marker_color=CHART_COLORS[i],
+            text=unit_df["count"], textposition="outside", textfont_size=8,
+        ))
+    fig_micu_sicu.update_layout(
+        barmode="group", template=LIGHT_TEMPLATE,
+        margin=dict(l=10, r=30, t=30, b=30),
+        yaxis={"categoryorder": "total ascending", "tickfont": {"size": 8}},
+        xaxis_title="Number of Admissions",
+        title="Top Diagnoses: MICU vs SICU", title_font_size=12,
+        legend=dict(font=dict(size=9), orientation="h", y=-0.15),
+    )
+
+    # Insight Q2
+    micu_top1 = micu_top5.index[0][:40] if len(micu_top5) else "N/A"
+    sicu_top1 = sicu_top5.index[0][:40] if len(sicu_top5) else "N/A"
+    insight_2 = (
+        f'Insight Q2: MICU top diagnosis is "{micu_top1}" ({micu_top5.iloc[0]:,}), '
+        f'while SICU top is "{sicu_top1}" ({sicu_top5.iloc[0]:,}). '
+        f"Disease profiles differ significantly between medical and surgical ICUs."
+    )
+
+    # ================================================================
+    # Q3: Histogram + Violin – LOS Variation (0 to 70+ days)
+    #     → answers "ความแตกต่างของ LOS สะท้อนอะไร?"
+    # ================================================================
+    # Histogram colored by LOS category
+    hist_data_short = dff[(dff["los"] <= 70) & (dff["los_category"] == "Short Stay")]["los"]
+    hist_data_long = dff[(dff["los"] <= 70) & (dff["los_category"] == "Long Stay")]["los"]
+
+    fig_hist = go.Figure()
+    fig_hist.add_trace(go.Histogram(
+        x=hist_data_short, nbinsx=35, name="Short Stay",
+        marker_color=ACCENT_TEAL, opacity=0.75,
     ))
-    fig_diag.update_layout(
-        template=LIGHT_TEMPLATE, margin=dict(l=10, r=40, t=30, b=30),
-        yaxis={"categoryorder": "total ascending", "tickfont": {"size": 9}},
-        title="Top 10 Diagnoses", title_font_size=12,
-        yaxis_title="",
-    )
-
-    top1_diag = top_diag.iloc[0]
-    insight_2 = f'Key Insight #2: "{top1_diag["Diagnosis"][:50]}..." is the most common diagnosis with {top1_diag["Count"]:,} admissions.'
-
-    # ---- Q3: Histogram (real column: los) ----
-    hist_data = dff[dff["los"] <= 40]["los"]
-    fig_hist = go.Figure(go.Histogram(
-        x=hist_data, nbinsx=8,
-        marker_color=ACCENT_GOLD, marker_line_color=ACCENT_TEAL, marker_line_width=1,
+    fig_hist.add_trace(go.Histogram(
+        x=hist_data_long, nbinsx=35, name="Long Stay",
+        marker_color=ACCENT_GOLD, opacity=0.75,
     ))
     fig_hist.update_layout(
-        template=LIGHT_TEMPLATE, margin=dict(l=30, r=10, t=30, b=30),
-        xaxis_title="LOS in days", yaxis_title="Count",
-        title="Histogram", title_font_size=12, bargap=0.05,
-        yaxis_type=yaxis_type,
+        barmode="overlay", template=LIGHT_TEMPLATE,
+        margin=dict(l=30, r=10, t=25, b=25),
+        xaxis_title="LOS (days)", yaxis_title="Count",
+        title="LOS Distribution by Category", title_font_size=11,
+        legend=dict(font=dict(size=8), orientation="h", y=1.05),
+        yaxis_type=yaxis_type, bargap=0.03,
     )
 
-    long_stay_pct = (dff["los"] > 30).sum() / total * 100 if total else 0
-    insight_3 = f"Key Insight #3: {long_stay_pct:.1f}% of patients stay over 30 days, representing the long-tail outliers that consume disproportionate ICU resources."
+    # Violin plot by care unit (shows shape of distribution per unit)
+    top_units = dff["first_careunit"].value_counts().head(5).index.tolist()
+    violin_df = dff[(dff["first_careunit"].isin(top_units)) & (dff["los"] <= 70)]
+    fig_violin = go.Figure()
+    for i, unit in enumerate(top_units):
+        unit_data = violin_df[violin_df["first_careunit"] == unit]["los"]
+        fig_violin.add_trace(go.Violin(
+            y=unit_data, name=unit, box_visible=True, meanline_visible=True,
+            fillcolor=f"rgba({','.join(str(int(CHART_COLORS[i % len(CHART_COLORS)].lstrip('#')[j:j+2], 16)) for j in (0,2,4))},0.3)",
+            line_color=CHART_COLORS[i % len(CHART_COLORS)],
+        ))
+    fig_violin.update_layout(
+        template=LIGHT_TEMPLATE, showlegend=False,
+        margin=dict(l=30, r=10, t=25, b=25),
+        yaxis_title="LOS (days)", title="LOS Shape by Care Unit (Violin)",
+        title_font_size=11, yaxis_type=yaxis_type,
+    )
 
-    # ---- Avg LOS by Care Unit bar (real columns: first_careunit, los) ----
-    avg_by_cu = (
-        dff.groupby("first_careunit")["los"]
+    # Insight Q3
+    pct_under7 = (dff["los"] <= 7).sum() / total * 100 if total else 0
+    pct_over30 = (dff["los"] > 30).sum() / total * 100 if total else 0
+    pct_over70 = (dff["los"] > 70).sum() / total * 100 if total else 0
+    insight_3 = (
+        f"Insight Q3: {pct_under7:.1f}% of patients stay ≤7 days (routine cases), "
+        f"while {pct_over30:.1f}% stay >30 days and {pct_over70:.1f}% exceed 70 days. "
+        f"The wide variation reflects a mix of short acute episodes and complex chronic conditions requiring extended ICU care."
+    )
+
+    # ================================================================
+    # Supporting: Avg LOS by Top 10 Diagnoses (horizontal bar)
+    # ================================================================
+    avg_los_by_diag = (
+        dff[dff["long_title"].isin(top10_diag)]
+        .groupby("long_title")["los"]
         .mean()
         .sort_values(ascending=True)
         .reset_index()
     )
-    avg_by_cu.columns = ["Care Unit", "Avg LOS"]
+    avg_los_by_diag.columns = ["Diagnosis", "Avg_LOS"]
+    avg_los_by_diag["short"] = avg_los_by_diag["Diagnosis"].str[:30]
 
-    fig_avg_los = go.Figure(go.Bar(
-        x=avg_by_cu["Avg LOS"],
-        y=avg_by_cu["Care Unit"],
+    fig_avg_diag = go.Figure(go.Bar(
+        x=avg_los_by_diag["Avg_LOS"],
+        y=avg_los_by_diag["short"],
         orientation="h",
         marker_color=CHART_COLORS[1],
-        text=avg_by_cu["Avg LOS"].round(1).astype(str) + "d",
+        text=avg_los_by_diag["Avg_LOS"].round(1).astype(str) + "d",
         textposition="outside",
         textfont_size=9,
     ))
-    fig_avg_los.update_layout(
+    fig_avg_diag.update_layout(
         template=LIGHT_TEMPLATE, margin=dict(l=10, r=40, t=30, b=30),
         xaxis_title="Avg LOS (days)", yaxis_title="",
-        title="Avg LOS by Care Unit", title_font_size=12,
+        yaxis_tickfont_size=8,
+        title="Avg LOS by Top 10 Diagnoses", title_font_size=12,
     )
 
-    # ---- Summary takeaways (computed from real data) ----
+    # ================================================================
+    # Summary & Breakdown
+    # ================================================================
     short_count = (dff["los_category"] == "Short Stay").sum()
     long_count = (dff["los_category"] == "Long Stay").sum()
     short_pct = short_count / total * 100 if total else 0
@@ -462,19 +530,22 @@ def update_dashboard(careunits, los_cats, use_log):
     takeaways = html.Ol(
         [
             html.Li(
-                f"{busiest} has the most admissions ({dff['first_careunit'].value_counts().iloc[0]:,}).",
-                style={"color": TEXT_MUTED, "fontSize": "12px", "marginBottom": "4px"},
+                f"Q1: Primary diagnosis strongly influences LOS – avg LOS ranges from "
+                f"{avg_by_diag.iloc[-1]['mean']:.1f}d to {avg_by_diag.iloc[0]['mean']:.1f}d across top diagnoses.",
+                style={"color": TEXT_MUTED, "fontSize": "11px", "marginBottom": "4px"},
             ),
             html.Li(
-                f"Average LOS is {avg_los:.1f} days; median is {median_los:.1f} days.",
-                style={"color": TEXT_MUTED, "fontSize": "12px", "marginBottom": "4px"},
+                f"Q2: MICU and SICU have distinct disease profiles; "
+                f"MICU skews toward medical conditions, SICU toward surgical/trauma.",
+                style={"color": TEXT_MUTED, "fontSize": "11px", "marginBottom": "4px"},
             ),
             html.Li(
-                f"{long_stay_pct:.1f}% of patients stay >30 days.",
-                style={"color": TEXT_MUTED, "fontSize": "12px"},
+                f"Q3: {pct_under7:.0f}% stay ≤7d (acute), {pct_over30:.1f}% stay >30d (complex). "
+                f"The variation reflects case severity and diagnosis type.",
+                style={"color": TEXT_MUTED, "fontSize": "11px"},
             ),
         ],
-        style={"paddingLeft": "18px"},
+        style={"paddingLeft": "16px"},
     )
 
     breakdown = html.Div(
@@ -493,9 +564,9 @@ def update_dashboard(careunits, los_cats, use_log):
     return (
         kpi_total, kpi_avg, kpi_median, kpi_max, kpi_long,
         fig_box, insight_1,
-        fig_diag, insight_2,
-        fig_hist, insight_3,
-        fig_avg_los,
+        fig_micu_sicu, insight_2,
+        fig_hist, fig_violin, insight_3,
+        fig_avg_diag,
         takeaways,
         breakdown,
     )

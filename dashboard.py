@@ -8,7 +8,7 @@ from dash import Dash, html, dcc, Input, Output, callback
 import dash_bootstrap_components as dbc
 
 # ---------------------------------------------------------------------------
-# Data Loading & Feature Engineering
+# Data Loading (only real CSV columns)
 # ---------------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 df = pd.read_csv(BASE_DIR / "final_csv_icu.csv")
@@ -16,57 +16,11 @@ df = df.drop(columns=["Unnamed: 0"], errors="ignore")
 df["first_careunit"] = df["first_careunit"].fillna("Unknown")
 df["long_title"] = df["long_title"].fillna("Unknown")
 
-# Map diagnoses to broad diagnosis groups
-DIAGNOSIS_MAP = {
-    "Cardiovascular": [
-        "coronary", "myocardial", "heart", "cardiac", "aortic", "mitral",
-        "valve", "atherosclerotic", "bradycardia", "tachycardia", "atrial",
-        "ventricular", "pericarditis", "endocarditis", "cardiomyopathy",
-        "angina", "arrhythmia", "hypertensive", "nstemi", "stemi",
-    ],
-    "Respiratory": [
-        "respiratory", "pneumonia", "pneumonitis", "pulmonary", "asthma",
-        "bronch", "copd", "ventilat", "tracheostomy", "hemothorax",
-        "pneumothorax", "lung", "pleural",
-    ],
-    "Sepsis/Infection": [
-        "sepsis", "septicemia", "infection", "abscess", "cellulitis",
-        "meningitis", "endocarditis", "osteomyelitis", "peritonitis",
-        "staphylococcus", "streptococ", "escherichia", "pseudomonas",
-        "clostridium",
-    ],
-    "Trauma": [
-        "trauma", "fracture", "contusion", "laceration", "wound",
-        "hemorrhage", "bleeding", "injury", "burn", "crush",
-        "hemothorax", "hematoma",
-    ],
-    "Post-Op Care": [
-        "postoperative", "postprocedural", "complication", "disruption",
-        "transplant", "graft", "prosthe", "implant", "surgical",
-    ],
-}
-
-
-def classify_diagnosis(title):
-    t = title.lower()
-    for group, keywords in DIAGNOSIS_MAP.items():
-        if any(kw in t for kw in keywords):
-            return group
-    return "Other"
-
-
-df["diagnosis_group"] = df["long_title"].apply(classify_diagnosis)
-
-# Simulate a comorbidity index (number of unique diagnoses per patient)
-patient_diag_count = (
-    df.groupby("subject_id")["long_title"].nunique().reset_index()
-)
-patient_diag_count.columns = ["subject_id", "comorbidity_index"]
-df = df.merge(patient_diag_count, on="subject_id", how="left")
-
 CAREUNITS = sorted(df["first_careunit"].unique())
 LOS_CATEGORIES = sorted(df["los_category"].unique())
-DIAG_GROUPS = sorted(df["diagnosis_group"].unique())
+
+# Top diagnoses for filters (real data)
+TOP_DIAGNOSES = df["long_title"].value_counts().head(20).index.tolist()
 
 # ---------------------------------------------------------------------------
 # Color Palette & Theme
@@ -82,7 +36,7 @@ BORDER_COLOR = "#e2e8f0"
 
 CHART_COLORS = ["#0891b2", "#eab308", "#0ea5e9", "#f59e0b", "#06b6d4", "#d97706"]
 
-DARK_TEMPLATE = go.layout.Template(
+LIGHT_TEMPLATE = go.layout.Template(
     layout=go.Layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -183,21 +137,7 @@ app.layout = html.Div(
                                         style={"fontSize": "12px"},
                                     ),
                                 ],
-                                md=4,
-                            ),
-                            dbc.Col(
-                                [
-                                    html.Label("Diagnosis Group", style={"color": TEXT_MUTED, "fontSize": "11px"}),
-                                    dcc.Dropdown(
-                                        id="filter-diag-group",
-                                        options=[{"label": c, "value": c} for c in DIAG_GROUPS],
-                                        value=[],
-                                        multi=True,
-                                        placeholder="All",
-                                        style={"fontSize": "12px"},
-                                    ),
-                                ],
-                                md=4,
+                                md=5,
                             ),
                             dbc.Col(
                                 [
@@ -211,7 +151,7 @@ app.layout = html.Div(
                                         style={"fontSize": "12px"},
                                     ),
                                 ],
-                                md=3,
+                                md=5,
                             ),
                             dbc.Col(
                                 [
@@ -222,7 +162,7 @@ app.layout = html.Div(
                                         style={"marginTop": "4px"},
                                     ),
                                 ],
-                                md=1,
+                                md=2,
                                 className="d-flex flex-column align-items-center",
                             ),
                         ]
@@ -233,7 +173,7 @@ app.layout = html.Div(
             className="mb-3",
             align="center",
         ),
-        # ===== ROW 1: Overview KPIs (left) + Box Plot Q1 (right) =====
+        # ===== ROW 1: Overview KPIs (left) + Box Plot by Care Unit (right) =====
         dbc.Row(
             [
                 # --- Left: Overview panel ---
@@ -274,16 +214,16 @@ app.layout = html.Div(
                     ),
                     md=4,
                 ),
-                # --- Right: Q1 Box Plot ---
+                # --- Right: Q1 Box Plot by Care Unit ---
                 dbc.Col(
                     html.Div(
                         style=PANEL_STYLE,
                         children=[
                             html.Div(
-                                "Q1 – Primary Diagnosis Impact on LOS",
+                                "Q1 – LOS Distribution by Care Unit",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="box-diagnosis", config=GRAPH_CONFIG, style={"height": "260px"}),
+                            dcc.Graph(id="box-careunit", config=GRAPH_CONFIG, style={"height": "260px"}),
                             html.Div(
                                 id="insight-1",
                                 style=INSIGHT_STYLE,
@@ -295,19 +235,19 @@ app.layout = html.Div(
             ],
             className="g-3 mb-3",
         ),
-        # ===== ROW 2: Stacked Bar (left) + Histogram (center) + Scatter (right-center) + Summary (right) =====
+        # ===== ROW 2: Top Diagnoses Bar (left) + Histogram (center) + Avg LOS by Unit (right-center) + Summary (right) =====
         dbc.Row(
             [
-                # Q2 – MICU vs SICU stacked bar
+                # Q2 – Top Diagnoses
                 dbc.Col(
                     html.Div(
                         style=PANEL_STYLE,
                         children=[
                             html.Div(
-                                "Q2 – MICU vs SICU Disease Profile",
+                                "Q2 – Top 10 Diagnoses by Admissions",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="stacked-bar", config=GRAPH_CONFIG, style={"height": "260px"}),
+                            dcc.Graph(id="bar-top-diag", config=GRAPH_CONFIG, style={"height": "260px"}),
                             html.Div(
                                 id="insight-2",
                                 style=INSIGHT_STYLE,
@@ -334,16 +274,16 @@ app.layout = html.Div(
                     ),
                     md=3,
                 ),
-                # Scatter plot
+                # Avg LOS by Care Unit
                 dbc.Col(
                     html.Div(
                         style=PANEL_STYLE,
                         children=[
                             html.Div(
-                                "LOS vs Comorbidity Index",
+                                "Avg LOS by Care Unit",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="scatter-comorb", config=GRAPH_CONFIG, style={"height": "300px"}),
+                            dcc.Graph(id="bar-avg-los", config=GRAPH_CONFIG, style={"height": "300px"}),
                         ],
                     ),
                     md=3,
@@ -359,18 +299,15 @@ app.layout = html.Div(
                             ),
                             html.Div(
                                 [
-                                    html.Div("2–3 Key Takeaways:", style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "12px", "marginBottom": "6px"}),
+                                    html.Div("Key Takeaways:", style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "12px", "marginBottom": "6px"}),
                                     html.Div(id="summary-takeaways"),
                                 ],
                                 style={"marginBottom": "16px"},
                             ),
                             html.Div(
                                 [
-                                    html.Div("1 Recommendation:", style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "12px", "marginBottom": "6px"}),
-                                    html.Div(
-                                        'Implement a "Complex Case" Triage Protocol for high-comorbidity, high-LOS diagnosis patients.',
-                                        style={"color": TEXT_MUTED, "fontSize": "12px", "lineHeight": "1.5"},
-                                    ),
+                                    html.Div("LOS Category Breakdown:", style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "12px", "marginBottom": "6px"}),
+                                    html.Div(id="summary-breakdown"),
                                 ],
                             ),
                         ],
@@ -393,25 +330,23 @@ app.layout = html.Div(
     Output("kpi-median", "children"),
     Output("kpi-max", "children"),
     Output("kpi-long-pct", "children"),
-    Output("box-diagnosis", "figure"),
+    Output("box-careunit", "figure"),
     Output("insight-1", "children"),
-    Output("stacked-bar", "figure"),
+    Output("bar-top-diag", "figure"),
     Output("insight-2", "children"),
     Output("hist-los", "figure"),
     Output("insight-3", "children"),
-    Output("scatter-comorb", "figure"),
+    Output("bar-avg-los", "figure"),
     Output("summary-takeaways", "children"),
+    Output("summary-breakdown", "children"),
     Input("filter-careunit", "value"),
-    Input("filter-diag-group", "value"),
     Input("filter-los-cat", "value"),
     Input("toggle-log", "value"),
 )
-def update_dashboard(careunits, diag_groups, los_cats, use_log):
+def update_dashboard(careunits, los_cats, use_log):
     dff = df.copy()
     if careunits:
         dff = dff[dff["first_careunit"].isin(careunits)]
-    if diag_groups:
-        dff = dff[dff["diagnosis_group"].isin(diag_groups)]
     if los_cats:
         dff = dff[dff["los_category"].isin(los_cats)]
 
@@ -429,118 +364,140 @@ def update_dashboard(careunits, diag_groups, los_cats, use_log):
     kpi_max = f"{max_los:.0f} Days"
     kpi_long = f"{long_pct:.1f}%"
 
-    # ---- Q1: Box plot by diagnosis group ----
-    top_groups = ["Cardiovascular", "Respiratory", "Sepsis/Infection", "Post-Op Care", "Trauma"]
-    box_df = dff[dff["diagnosis_group"].isin(top_groups)]
+    yaxis_type = "log" if use_log else "linear"
+
+    # ---- Q1: Box plot by care unit (real column: first_careunit) ----
+    units = dff["first_careunit"].value_counts().head(8).index.tolist()
     fig_box = go.Figure()
-    for i, grp in enumerate(top_groups):
-        grp_data = box_df[box_df["diagnosis_group"] == grp]["los"]
+    for i, unit in enumerate(units):
+        unit_data = dff[dff["first_careunit"] == unit]["los"]
         fig_box.add_trace(go.Box(
-            y=grp_data, name=grp,
+            y=unit_data, name=unit,
             marker_color=CHART_COLORS[i % len(CHART_COLORS)],
             line_color=CHART_COLORS[i % len(CHART_COLORS)],
             fillcolor=f"rgba({','.join(str(int(CHART_COLORS[i % len(CHART_COLORS)].lstrip('#')[j:j+2], 16)) for j in (0,2,4))},0.3)",
         ))
-    yaxis_type = "log" if use_log else "linear"
     fig_box.update_layout(
-        template=DARK_TEMPLATE, showlegend=False, margin=dict(l=30, r=10, t=30, b=30),
+        template=LIGHT_TEMPLATE, showlegend=False, margin=dict(l=30, r=10, t=30, b=30),
         yaxis_title="LOS (days)", title="Box and Whisker Plot",
         title_font_size=12, yaxis_type=yaxis_type,
     )
 
-    # Insight 1
-    avg_by_grp = box_df.groupby("diagnosis_group")["los"].mean().sort_values(ascending=False)
-    top2 = avg_by_grp.head(2).index.tolist() if len(avg_by_grp) >= 2 else avg_by_grp.index.tolist()
-    insight_1 = f"Key Insight #1: {' and '.join(top2)} are the primary drivers of longer LOS, with significantly higher median values and extreme outliers."
+    # Insight 1 (computed from real data)
+    avg_by_unit = dff.groupby("first_careunit")["los"].mean().sort_values(ascending=False)
+    top2_units = avg_by_unit.head(2)
+    insight_1 = f"Key Insight #1: {top2_units.index[0]} (avg {top2_units.iloc[0]:.1f}d) and {top2_units.index[1]} (avg {top2_units.iloc[1]:.1f}d) have the longest average LOS across all care units."
 
-    # ---- Q2: Stacked bar MICU vs SICU ----
-    micu_sicu = dff[dff["first_careunit"].isin(["MICU", "SICU"])]
-    stacked_data = micu_sicu.groupby(["first_careunit", "diagnosis_group"]).size().reset_index(name="count")
-    # Compute percentages
-    totals = stacked_data.groupby("first_careunit")["count"].transform("sum")
-    stacked_data["pct"] = stacked_data["count"] / totals * 100
+    # ---- Q2: Top 10 diagnoses bar (real column: long_title) ----
+    top_diag = dff["long_title"].value_counts().head(10).reset_index()
+    top_diag.columns = ["Diagnosis", "Count"]
+    top_diag["Diagnosis_short"] = top_diag["Diagnosis"].str[:40]
 
-    fig_stacked = go.Figure()
-    for i, grp in enumerate(top_groups):
-        grp_df = stacked_data[stacked_data["diagnosis_group"] == grp]
-        fig_stacked.add_trace(go.Bar(
-            x=grp_df["first_careunit"], y=grp_df["pct"], name=grp,
-            marker_color=CHART_COLORS[i % len(CHART_COLORS)],
-            text=grp_df["pct"].round(0).astype(int).astype(str) + "%",
-            textposition="inside", textfont_size=9,
-        ))
-    fig_stacked.update_layout(
-        barmode="stack", template=DARK_TEMPLATE, margin=dict(l=30, r=10, t=30, b=30),
-        yaxis_title="Percent of Patients", xaxis_title="Care Unit",
-        title="Stacked Bar Chart", title_font_size=12,
-        legend=dict(font=dict(size=9), orientation="h", y=-0.25),
+    fig_diag = go.Figure(go.Bar(
+        x=top_diag["Count"],
+        y=top_diag["Diagnosis_short"],
+        orientation="h",
+        marker_color=ACCENT_TEAL,
+        text=top_diag["Count"],
+        textposition="outside",
+        textfont_size=9,
+    ))
+    fig_diag.update_layout(
+        template=LIGHT_TEMPLATE, margin=dict(l=10, r=40, t=30, b=30),
+        yaxis={"categoryorder": "total ascending", "tickfont": {"size": 9}},
+        title="Top 10 Diagnoses", title_font_size=12,
+        yaxis_title="",
     )
 
-    insight_2 = "Key Insight #2: MICU profiles are complex (Respiratory/Sepsis), leading to inherently longer LOS than the predictable Post-Op SICU caseload."
+    top1_diag = top_diag.iloc[0]
+    insight_2 = f'Key Insight #2: "{top1_diag["Diagnosis"][:50]}..." is the most common diagnosis with {top1_diag["Count"]:,} admissions.'
 
-    # ---- Q3: Histogram ----
+    # ---- Q3: Histogram (real column: los) ----
     hist_data = dff[dff["los"] <= 40]["los"]
     fig_hist = go.Figure(go.Histogram(
         x=hist_data, nbinsx=8,
         marker_color=ACCENT_GOLD, marker_line_color=ACCENT_TEAL, marker_line_width=1,
     ))
     fig_hist.update_layout(
-        template=DARK_TEMPLATE, margin=dict(l=30, r=10, t=30, b=30),
+        template=LIGHT_TEMPLATE, margin=dict(l=30, r=10, t=30, b=30),
         xaxis_title="LOS in days", yaxis_title="Count",
         title="Histogram", title_font_size=12, bargap=0.05,
         yaxis_type=yaxis_type,
     )
 
     long_stay_pct = (dff["los"] > 30).sum() / total * 100 if total else 0
-    insight_3 = f"Key Insight #3: A small percentage ({long_stay_pct:.1f}%) of long-stay patients over 30 days significantly impacts resource use. This correlates with higher comorbidity."
+    insight_3 = f"Key Insight #3: {long_stay_pct:.1f}% of patients stay over 30 days, representing the long-tail outliers that consume disproportionate ICU resources."
 
-    # ---- Scatter: LOS vs Comorbidity Index ----
-    scatter_df = dff.sample(n=min(2000, len(dff)), random_state=42) if len(dff) > 2000 else dff
-    fig_scatter = go.Figure(go.Scatter(
-        x=scatter_df["comorbidity_index"],
-        y=scatter_df["los"],
-        mode="markers",
-        marker=dict(color=ACCENT_TEAL, size=4, opacity=0.4),
+    # ---- Avg LOS by Care Unit bar (real columns: first_careunit, los) ----
+    avg_by_cu = (
+        dff.groupby("first_careunit")["los"]
+        .mean()
+        .sort_values(ascending=True)
+        .reset_index()
+    )
+    avg_by_cu.columns = ["Care Unit", "Avg LOS"]
+
+    fig_avg_los = go.Figure(go.Bar(
+        x=avg_by_cu["Avg LOS"],
+        y=avg_by_cu["Care Unit"],
+        orientation="h",
+        marker_color=CHART_COLORS[1],
+        text=avg_by_cu["Avg LOS"].round(1).astype(str) + "d",
+        textposition="outside",
+        textfont_size=9,
     ))
-    # Add trendline
-    if len(scatter_df) > 10:
-        z = np.polyfit(scatter_df["comorbidity_index"], scatter_df["los"], 1)
-        p = np.poly1d(z)
-        x_line = np.linspace(scatter_df["comorbidity_index"].min(), scatter_df["comorbidity_index"].max(), 50)
-        fig_scatter.add_trace(go.Scatter(
-            x=x_line, y=p(x_line), mode="lines",
-            line=dict(color=ACCENT_GOLD, width=2), showlegend=False,
-        ))
-    fig_scatter.update_layout(
-        template=DARK_TEMPLATE, margin=dict(l=30, r=10, t=30, b=30),
-        xaxis_title="Comorbidity Index", yaxis_title="LOS (days)",
-        title="Scatter Plot", title_font_size=12,
-        yaxis_type=yaxis_type,
+    fig_avg_los.update_layout(
+        template=LIGHT_TEMPLATE, margin=dict(l=10, r=40, t=30, b=30),
+        xaxis_title="Avg LOS (days)", yaxis_title="",
+        title="Avg LOS by Care Unit", title_font_size=12,
     )
 
-    # ---- Summary takeaways ----
+    # ---- Summary takeaways (computed from real data) ----
+    short_count = (dff["los_category"] == "Short Stay").sum()
+    long_count = (dff["los_category"] == "Long Stay").sum()
+    short_pct = short_count / total * 100 if total else 0
+    long_pct_cat = long_count / total * 100 if total else 0
+    busiest = dff["first_careunit"].value_counts().idxmax() if total else "N/A"
+
     takeaways = html.Ol(
         [
-            html.Li("Diagnosis drives LOS.", style={"color": TEXT_MUTED, "fontSize": "12px", "marginBottom": "4px"}),
             html.Li(
-                f"MICU is more complex than SICU.",
+                f"{busiest} has the most admissions ({dff['first_careunit'].value_counts().iloc[0]:,}).",
                 style={"color": TEXT_MUTED, "fontSize": "12px", "marginBottom": "4px"},
             ),
             html.Li(
-                "Long-stay patients disproportionately consume resources.",
+                f"Average LOS is {avg_los:.1f} days; median is {median_los:.1f} days.",
+                style={"color": TEXT_MUTED, "fontSize": "12px", "marginBottom": "4px"},
+            ),
+            html.Li(
+                f"{long_stay_pct:.1f}% of patients stay >30 days.",
                 style={"color": TEXT_MUTED, "fontSize": "12px"},
             ),
         ],
         style={"paddingLeft": "18px"},
     )
 
+    breakdown = html.Div(
+        [
+            html.Div(
+                f"Short Stay: {short_count:,} ({short_pct:.1f}%)",
+                style={"color": ACCENT_TEAL, "fontSize": "12px", "marginBottom": "4px"},
+            ),
+            html.Div(
+                f"Long Stay: {long_count:,} ({long_pct_cat:.1f}%)",
+                style={"color": ACCENT_GOLD, "fontSize": "12px"},
+            ),
+        ]
+    )
+
     return (
         kpi_total, kpi_avg, kpi_median, kpi_max, kpi_long,
         fig_box, insight_1,
-        fig_stacked, insight_2,
+        fig_diag, insight_2,
         fig_hist, insight_3,
-        fig_scatter,
+        fig_avg_los,
         takeaways,
+        breakdown,
     )
 
 

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -9,7 +10,8 @@ import dash_bootstrap_components as dbc
 # ---------------------------------------------------------------------------
 # Data Loading
 # ---------------------------------------------------------------------------
-df = pd.read_csv("final_csv_icu.csv")
+BASE_DIR = Path(__file__).resolve().parent
+df = pd.read_csv(BASE_DIR / "final_csv_icu.csv")
 df = df.drop(columns=["Unnamed: 0"], errors="ignore")
 df["first_careunit"] = df["first_careunit"].fillna("Unknown")
 df["long_title"] = df["long_title"].fillna("Unknown")

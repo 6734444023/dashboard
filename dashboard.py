@@ -71,16 +71,16 @@ DIAG_GROUPS = sorted(df["diagnosis_group"].unique())
 # ---------------------------------------------------------------------------
 # Color Palette & Theme
 # ---------------------------------------------------------------------------
-BG_DARK = "#0a1628"
-BG_CARD = "#0f2744"
-BG_CARD_INNER = "#132d4a"
-ACCENT_TEAL = "#22d3ee"
-ACCENT_GOLD = "#eab308"
-TEXT_WHITE = "#e2e8f0"
-TEXT_MUTED = "#94a3b8"
-BORDER_COLOR = "#1e3a5f"
+BG_DARK = "#f0f4f8"
+BG_CARD = "#ffffff"
+BG_CARD_INNER = "#f8fafc"
+ACCENT_TEAL = "#0891b2"
+ACCENT_GOLD = "#b45309"
+TEXT_WHITE = "#1e293b"
+TEXT_MUTED = "#64748b"
+BORDER_COLOR = "#e2e8f0"
 
-CHART_COLORS = ["#22d3ee", "#eab308", "#38bdf8", "#f59e0b", "#06b6d4", "#fbbf24"]
+CHART_COLORS = ["#0891b2", "#eab308", "#0ea5e9", "#f59e0b", "#06b6d4", "#d97706"]
 
 DARK_TEMPLATE = go.layout.Template(
     layout=go.Layout(
@@ -89,11 +89,11 @@ DARK_TEMPLATE = go.layout.Template(
         font=dict(color=TEXT_WHITE, size=11),
         title=dict(font=dict(color=ACCENT_TEAL, size=14)),
         xaxis=dict(
-            gridcolor="rgba(30,58,95,0.5)", zerolinecolor=BORDER_COLOR,
+            gridcolor="rgba(226,232,240,0.8)", zerolinecolor=BORDER_COLOR,
             color=TEXT_MUTED,
         ),
         yaxis=dict(
-            gridcolor="rgba(30,58,95,0.5)", zerolinecolor=BORDER_COLOR,
+            gridcolor="rgba(226,232,240,0.8)", zerolinecolor=BORDER_COLOR,
             color=TEXT_MUTED,
         ),
         colorway=CHART_COLORS,
@@ -103,7 +103,7 @@ DARK_TEMPLATE = go.layout.Template(
 # ---------------------------------------------------------------------------
 # App Setup
 # ---------------------------------------------------------------------------
-app = Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
+app = Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
 app.title = "ICU Length of Stay (LOS) & Diagnosis Analysis"
 server = app.server  # for gunicorn
 
@@ -111,6 +111,7 @@ PANEL_STYLE = {
     "backgroundColor": BG_CARD,
     "borderRadius": "12px",
     "border": f"1px solid {BORDER_COLOR}",
+    "boxShadow": "0 1px 4px rgba(0,0,0,0.06)",
     "padding": "16px",
     "height": "100%",
 }
@@ -124,7 +125,7 @@ KPI_STYLE = {
 }
 
 INSIGHT_STYLE = {
-    "backgroundColor": "rgba(34,211,238,0.08)",
+    "backgroundColor": "#f0fdfa",
     "borderRadius": "8px",
     "border": f"1px solid {ACCENT_TEAL}",
     "padding": "10px 14px",

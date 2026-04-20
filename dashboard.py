@@ -508,11 +508,12 @@ def update_dashboard(careunits, los_cats, use_log):
     ))
     fig_hist.update_layout(
         barmode="overlay", template=LIGHT_TEMPLATE,
-        margin=dict(l=10, r=10, t=30, b=35),
+        margin=dict(l=50, r=10, t=30, b=35),
         xaxis_title="LOS (days)", yaxis_title="",
         title="LOS Distribution by Category", title_font_size=11,
         legend=dict(font=dict(size=8), orientation="h", y=1.0, x=1.0, xanchor="right", bgcolor="rgba(0,0,0,0)"),
-        yaxis_type=yaxis_type, bargap=0.03,
+        yaxis=dict(tickfont=dict(size=8), automargin=True, type=yaxis_type),
+        bargap=0.03,
     )
 
     # Violin plot by care unit (shows shape of distribution per unit)

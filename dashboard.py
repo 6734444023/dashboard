@@ -247,7 +247,7 @@ app.layout = html.Div(
                                 "Q2 – โรคที่พบบ่อยใน MICU vs SICU",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="bar-micu-sicu", config=GRAPH_CONFIG, style={"height": "360px"}),
+                            dcc.Graph(id="bar-micu-sicu", config=GRAPH_CONFIG, style={"height": "320px"}),
                             html.Div(id="insight-2", style=INSIGHT_STYLE),
                         ],
                     ),
@@ -409,20 +409,7 @@ def update_dashboard(careunits, los_cats, use_log):
 
     q2_data = micu_sicu[micu_sicu["long_title"].isin(union_diags)]
     q2_grouped = q2_data.groupby(["first_careunit", "long_title"]).size().reset_index(name="count")
-    # Wrap long diagnosis names for display
-    def wrap_label(text, width=30):
-        words = text.split()
-        lines, line = [], []
-        for w in words:
-            if sum(len(x) for x in line) + len(line) + len(w) > width and line:
-                lines.append(" ".join(line))
-                line = [w]
-            else:
-                line.append(w)
-        if line:
-            lines.append(" ".join(line))
-        return "<br>".join(lines)
-    q2_grouped["diag_label"] = q2_grouped["long_title"].apply(wrap_label)
+    q2_grouped["diag_label"] = q2_grouped["long_title"].str[:20] + "…"
 
     # Butterfly chart: MICU → left (negative), SICU → right (positive)
     pivot_df = q2_grouped.pivot_table(
@@ -430,6 +417,9 @@ def update_dashboard(careunits, los_cats, use_log):
         values="count", fill_value=0, aggfunc="sum",
     ).reset_index()
     pivot_df.columns.name = None
+    # keep original full name for hover
+    label_to_full = dict(zip(q2_grouped["diag_label"], q2_grouped["long_title"]))
+    pivot_df["full_name"] = pivot_df["diag_label"].map(label_to_full)
     micu_vals = pivot_df["MICU"] if "MICU" in pivot_df.columns else pd.Series([0] * len(pivot_df))
     sicu_vals = pivot_df["SICU"] if "SICU" in pivot_df.columns else pd.Series([0] * len(pivot_df))
 
@@ -438,13 +428,17 @@ def update_dashboard(careunits, los_cats, use_log):
         y=pivot_df["diag_label"], x=-micu_vals,
         name="MICU", orientation="h",
         marker_color=CHART_COLORS[0],
-        text=micu_vals, textposition="outside", textfont_size=8,
+        text=micu_vals, textposition="outside", textfont_size=9,
+        customdata=pivot_df["full_name"],
+        hovertemplate="<b>%{customdata}</b><br>MICU: %{text}<extra></extra>",
     ))
     fig_micu_sicu.add_trace(go.Bar(
         y=pivot_df["diag_label"], x=sicu_vals,
         name="SICU", orientation="h",
         marker_color=CHART_COLORS[1],
-        text=sicu_vals, textposition="outside", textfont_size=8,
+        text=sicu_vals, textposition="outside", textfont_size=9,
+        customdata=pivot_df["full_name"],
+        hovertemplate="<b>%{customdata}</b><br>SICU: %{text}<extra></extra>",
     ))
     max_val = int(max(micu_vals.max(), sicu_vals.max()))
     tick_step = max(1, max_val // 4)
@@ -452,14 +446,15 @@ def update_dashboard(careunits, los_cats, use_log):
     tick_text = [str(abs(v)) for v in tick_vals]
     fig_micu_sicu.update_layout(
         barmode="relative", template=LIGHT_TEMPLATE,
-        margin=dict(l=10, r=80, t=30, b=30),
-        yaxis=dict(tickfont=dict(size=8), automargin=True),
+        margin=dict(l=5, r=60, t=30, b=30),
+        yaxis=dict(tickfont=dict(size=9), automargin=True),
         xaxis=dict(
             title="Number of Admissions",
             tickvals=tick_vals, ticktext=tick_text,
+            tickfont=dict(size=9),
         ),
-        title="Top Diagnoses: MICU vs SICU (Butterfly)", title_font_size=12,
-        legend=dict(font=dict(size=9), orientation="h", y=-0.15),
+        title="Top Diagnoses: MICU vs SICU", title_font_size=12,
+        legend=dict(font=dict(size=9), orientation="h", y=-0.12),
     )
 
     # Insight Q2

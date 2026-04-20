@@ -247,7 +247,8 @@ app.layout = html.Div(
                                 "Q2 – โรคที่พบบ่อยใน MICU vs SICU",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="bar-micu-sicu", config=GRAPH_CONFIG, style={"height": "320px"}),
+                            dcc.Graph(id="bar-micu-sicu", config=GRAPH_CONFIG, style={"height": "300px"}),
+                            html.Div(id="diag-key-2", style={"marginTop": "6px", "fontSize": "10px", "color": TEXT_MUTED}),
                             html.Div(id="insight-2", style=INSIGHT_STYLE),
                         ],
                     ),
@@ -333,6 +334,7 @@ app.layout = html.Div(
     Output("violin-los", "figure"),
     Output("insight-3", "children"),
     Output("bar-avg-diag", "figure"),
+    Output("diag-key-2", "children"),
     Output("summary-takeaways", "children"),
     Output("summary-breakdown", "children"),
     Input("filter-careunit", "value"),
@@ -409,7 +411,10 @@ def update_dashboard(careunits, los_cats, use_log):
 
     q2_data = micu_sicu[micu_sicu["long_title"].isin(union_diags)]
     q2_grouped = q2_data.groupby(["first_careunit", "long_title"]).size().reset_index(name="count")
-    q2_grouped["diag_label"] = q2_grouped["long_title"].str[:20] + "…"
+    # Assign short codes D1, D2, … per unique diagnosis
+    unique_diags_ordered = list(dict.fromkeys(q2_grouped["long_title"].tolist()))
+    diag_code_map = {d: f"D{i+1}" for i, d in enumerate(unique_diags_ordered)}
+    q2_grouped["diag_label"] = q2_grouped["long_title"].map(diag_code_map)
 
     # Butterfly chart: MICU → left (negative), SICU → right (positive)
     pivot_df = q2_grouped.pivot_table(
@@ -417,9 +422,8 @@ def update_dashboard(careunits, los_cats, use_log):
         values="count", fill_value=0, aggfunc="sum",
     ).reset_index()
     pivot_df.columns.name = None
-    # keep original full name for hover
-    label_to_full = dict(zip(q2_grouped["diag_label"], q2_grouped["long_title"]))
-    pivot_df["full_name"] = pivot_df["diag_label"].map(label_to_full)
+    code_to_full = {v: k for k, v in diag_code_map.items()}
+    pivot_df["full_name"] = pivot_df["diag_label"].map(code_to_full)
     micu_vals = pivot_df["MICU"] if "MICU" in pivot_df.columns else pd.Series([0] * len(pivot_df))
     sicu_vals = pivot_df["SICU"] if "SICU" in pivot_df.columns else pd.Series([0] * len(pivot_df))
 
@@ -447,7 +451,7 @@ def update_dashboard(careunits, los_cats, use_log):
     fig_micu_sicu.update_layout(
         barmode="relative", template=LIGHT_TEMPLATE,
         margin=dict(l=5, r=60, t=30, b=30),
-        yaxis=dict(tickfont=dict(size=9), automargin=True),
+        yaxis=dict(tickfont=dict(size=10), automargin=True, categoryorder="array", categoryarray=sorted(pivot_df["diag_label"].tolist())),
         xaxis=dict(
             title="Number of Admissions",
             tickvals=tick_vals, ticktext=tick_text,
@@ -455,6 +459,19 @@ def update_dashboard(careunits, los_cats, use_log):
         ),
         title="Top Diagnoses: MICU vs SICU", title_font_size=12,
         legend=dict(font=dict(size=9), orientation="h", y=-0.12),
+    )
+
+    # Build abbreviation key table
+    diag_key_rows = [
+        html.Div(
+            [html.B(f"{code}: ", style={"color": TEXT_WHITE}), full],
+            style={"marginBottom": "2px"}
+        )
+        for code, full in sorted(code_to_full.items(), key=lambda x: int(x[0][1:]))
+    ]
+    diag_key_table = html.Div(
+        [html.Div("Diagnosis Key:", style={"fontWeight": "600", "color": ACCENT_TEAL, "marginBottom": "4px", "fontSize": "11px"})] + diag_key_rows,
+        style={"lineHeight": "1.4"},
     )
 
     # Insight Q2
@@ -612,6 +629,7 @@ def update_dashboard(careunits, los_cats, use_log):
         fig_micu_sicu, insight_2,
         fig_hist, fig_violin, insight_3,
         fig_avg_diag,
+        diag_key_table,
         takeaways,
         breakdown,
     )

@@ -513,7 +513,10 @@ def update_dashboard(careunits, los_cats, use_log):
         title="LOS Distribution by Category", title_font_size=11,
         legend=dict(font=dict(size=8), orientation="h", y=1.0, x=1.0, xanchor="right", bgcolor="rgba(0,0,0,0)"),
         xaxis=dict(range=[0, 72], tickfont=dict(size=8)),
-        yaxis=dict(tickfont=dict(size=8), automargin=True, type=yaxis_type, rangemode="tozero", tickvals=[2000, 4000, 6000, 8000, 10000]),
+        yaxis=dict(
+            tickfont=dict(size=8), automargin=True, type=yaxis_type, rangemode="tozero",
+            **({"tickvals": [1, 10, 100, 1000, 10000], "ticktext": ["1", "10", "100", "1k", "10k"]} if use_log else {"tickvals": [2000, 4000, 6000, 8000, 10000]}),
+        ),
         bargap=0.03,
     )
 
@@ -532,8 +535,12 @@ def update_dashboard(careunits, los_cats, use_log):
         template=LIGHT_TEMPLATE, showlegend=False,
         margin=dict(l=40, r=10, t=30, b=45),
         yaxis_title="LOS (days)", title="LOS Shape by Care Unit (Violin)",
-        title_font_size=11, yaxis_type="linear",
+        title_font_size=11, yaxis_type=yaxis_type,
         xaxis=dict(tickfont=dict(size=9), tickangle=0),
+        yaxis=dict(
+            tickfont=dict(size=8), type=yaxis_type,
+            **({"tickvals": [0.1, 1, 10, 70], "ticktext": ["0.1", "1", "10", "70"]} if use_log else {}),
+        ),
     )
 
     # Insight Q3

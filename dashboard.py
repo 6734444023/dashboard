@@ -455,7 +455,7 @@ def update_dashboard(careunits, los_cats, use_log):
         xaxis=dict(
             title="Number of Admissions",
             tickvals=tick_vals, ticktext=tick_text,
-            tickfont=dict(size=9),
+            tickfont=dict(size=6),
         ),
         title="Top Diagnoses: MICU vs SICU", title_font_size=12,
         legend=dict(font=dict(size=9), orientation="h", y=-0.12),

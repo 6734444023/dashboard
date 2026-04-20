@@ -432,7 +432,8 @@ def update_dashboard(careunits, los_cats, use_log):
         y=pivot_df["diag_label"], x=-micu_vals,
         name="MICU", orientation="h",
         marker_color=CHART_COLORS[0],
-        text=micu_vals, textposition="outside", textfont_size=9,
+        text=micu_vals, textposition="inside", textfont_size=9,
+        textfont_color="white",
         customdata=pivot_df["full_name"],
         hovertemplate="<b>%{customdata}</b><br>MICU: %{text}<extra></extra>",
     ))
@@ -440,25 +441,30 @@ def update_dashboard(careunits, los_cats, use_log):
         y=pivot_df["diag_label"], x=sicu_vals,
         name="SICU", orientation="h",
         marker_color=CHART_COLORS[1],
-        text=sicu_vals, textposition="outside", textfont_size=9,
+        text=sicu_vals, textposition="inside", textfont_size=9,
+        textfont_color="white",
         customdata=pivot_df["full_name"],
         hovertemplate="<b>%{customdata}</b><br>SICU: %{text}<extra></extra>",
     ))
     max_val = int(max(micu_vals.max(), sicu_vals.max()))
     tick_step = max(1, max_val // 4)
-    tick_vals = list(range(-max_val, max_val + tick_step, tick_step))
-    tick_text = [str(abs(v)) for v in tick_vals]
+    tick_vals = list(range(0, max_val + tick_step, tick_step))
+    # Mirror for both sides
+    all_tick_vals = [-v for v in reversed(tick_vals[1:])] + tick_vals
+    all_tick_text = [str(v) for v in reversed(tick_vals[1:])] + [str(v) for v in tick_vals]
     fig_micu_sicu.update_layout(
         barmode="relative", template=LIGHT_TEMPLATE,
-        margin=dict(l=5, r=60, t=30, b=10),
+        margin=dict(l=5, r=70, t=50, b=50),
         yaxis=dict(tickfont=dict(size=10), automargin=True, categoryorder="array", categoryarray=sorted(pivot_df["diag_label"].tolist())),
         xaxis=dict(
-            title="Number of Admissions",
-            tickvals=tick_vals, ticktext=tick_text,
-            tickfont=dict(size=5),
+            title=dict(text="Number of Admissions", standoff=15),
+            tickvals=all_tick_vals, ticktext=all_tick_text,
+            tickfont=dict(size=8),
+            range=[-(max_val * 1.25), max_val * 1.25],
+            zeroline=True, zerolinewidth=2, zerolinecolor=BORDER_COLOR,
         ),
         title="Top Diagnoses: MICU vs SICU", title_font_size=12,
-        legend=dict(font=dict(size=9), orientation="h", y=-0.12),
+        legend=dict(font=dict(size=9), orientation="h", y=-0.18, x=0.3),
     )
 
     # Build abbreviation key table

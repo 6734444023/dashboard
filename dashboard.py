@@ -263,8 +263,8 @@ app.layout = html.Div(
                                 "Q3 – ความแตกต่างของ LOS (0–70+ วัน) สะท้อนอะไร?",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="hist-los", config=GRAPH_CONFIG, style={"height": "140px"}),
-                            dcc.Graph(id="violin-los", config=GRAPH_CONFIG, style={"height": "140px"}),
+                            dcc.Graph(id="hist-los", config=GRAPH_CONFIG, style={"height": "180px"}),
+                            dcc.Graph(id="violin-los", config=GRAPH_CONFIG, style={"height": "180px"}),
                             html.Div(id="insight-3", style=INSIGHT_STYLE),
                         ],
                     ),
@@ -508,10 +508,10 @@ def update_dashboard(careunits, los_cats, use_log):
     ))
     fig_hist.update_layout(
         barmode="overlay", template=LIGHT_TEMPLATE,
-        margin=dict(l=30, r=10, t=25, b=25),
+        margin=dict(l=40, r=10, t=30, b=35),
         xaxis_title="LOS (days)", yaxis_title="Count",
         title="LOS Distribution by Category", title_font_size=11,
-        legend=dict(font=dict(size=8), orientation="h", y=1.05),
+        legend=dict(font=dict(size=8), orientation="h", y=1.0, x=0, bgcolor="rgba(0,0,0,0)"),
         yaxis_type=yaxis_type, bargap=0.03,
     )
 
@@ -527,10 +527,11 @@ def update_dashboard(careunits, los_cats, use_log):
             line_color=CHART_COLORS[i % len(CHART_COLORS)],
         ))
     fig_violin.update_layout(
-        template=LIGHT_TEMPLATE, showlegend=False,
-        margin=dict(l=30, r=10, t=25, b=25),
+        template=LIGHT_TEMPLATE, showlegend=True,
+        margin=dict(l=40, r=10, t=30, b=35),
         yaxis_title="LOS (days)", title="LOS Shape by Care Unit (Violin)",
-        title_font_size=11, yaxis_type=yaxis_type,
+        title_font_size=11, yaxis_type="linear",
+        legend=dict(font=dict(size=8), orientation="h", y=-0.25, x=0),
     )
 
     # Insight Q3

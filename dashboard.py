@@ -521,7 +521,7 @@ def update_dashboard(careunits, los_cats, use_log):
         template=LIGHT_TEMPLATE,
         margin=dict(l=10, r=40, t=10, b=140),
         xaxis_title="Avg LOS (days)", yaxis_title="",
-        yaxis_tickfont_size=8,
+        yaxis=dict(showticklabels=False),
         title="Avg LOS by Top 10 Diagnoses", title_font_size=6,
         showlegend=True,
         legend=dict(

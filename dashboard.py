@@ -349,18 +349,20 @@ def update_dashboard(careunits, los_cats, use_log):
         dff = dff[dff["los_category"].isin(los_cats)]
 
     total = len(dff)
-    unique_patients = dff["subject_id"].nunique()
-    avg_los = dff["los"].mean() if total else 0
-    median_los = dff["los"].median() if total else 0
-    max_los = dff["los"].max() if total else 0
-    long_pct = (dff["los"] > 30).sum() / total * 100 if total else 0
 
-    # KPI values
-    kpi_total = f"{unique_patients:,}"
-    kpi_avg = f"{avg_los:.1f} Days"
-    kpi_median = f"{median_los:.1f} Days"
-    kpi_max = f"{max_los:.0f} Days"
-    kpi_long = f"{long_pct:.1f}%"
+    # KPI values – always from full dataset
+    all_total = len(df)
+    all_unique = df["subject_id"].nunique()
+    all_avg = df["los"].mean()
+    all_median = df["los"].median()
+    all_max = df["los"].max()
+    all_long_pct = (df["los"] > 30).sum() / all_total * 100
+
+    kpi_total = f"{all_unique:,}"
+    kpi_avg = f"{all_avg:.1f} Days"
+    kpi_median = f"{all_median:.1f} Days"
+    kpi_max = f"{all_max:.0f} Days"
+    kpi_long = f"{all_long_pct:.1f}%"
 
     yaxis_type = "log" if use_log else "linear"
 

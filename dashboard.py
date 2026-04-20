@@ -513,7 +513,7 @@ def update_dashboard(careunits, los_cats, use_log):
         title="LOS Distribution by Category", title_font_size=11,
         legend=dict(font=dict(size=8), orientation="h", y=1.0, x=1.0, xanchor="right", bgcolor="rgba(0,0,0,0)"),
         xaxis=dict(range=[0, 72], tickfont=dict(size=8)),
-        yaxis=dict(tickfont=dict(size=8), automargin=True, type=yaxis_type, rangemode="tozero", tick0=2000, dtick=2000),
+        yaxis=dict(tickfont=dict(size=8), automargin=True, type=yaxis_type, rangemode="tozero", tickvals=[2000, 4000, 6000, 8000, 10000]),
         bargap=0.03,
     )
 

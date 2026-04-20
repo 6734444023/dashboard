@@ -411,20 +411,40 @@ def update_dashboard(careunits, los_cats, use_log):
     q2_grouped = q2_data.groupby(["first_careunit", "long_title"]).size().reset_index(name="count")
     q2_grouped["short_diag"] = q2_grouped["long_title"].str[:35]
 
+    # Butterfly chart: MICU → left (negative), SICU → right (positive)
+    pivot_df = q2_grouped.pivot_table(
+        index="short_diag", columns="first_careunit",
+        values="count", fill_value=0, aggfunc="sum",
+    ).reset_index()
+    pivot_df.columns.name = None
+    micu_vals = pivot_df["MICU"] if "MICU" in pivot_df.columns else pd.Series([0] * len(pivot_df))
+    sicu_vals = pivot_df["SICU"] if "SICU" in pivot_df.columns else pd.Series([0] * len(pivot_df))
+
     fig_micu_sicu = go.Figure()
-    for i, unit in enumerate(["MICU", "SICU"]):
-        unit_df = q2_grouped[q2_grouped["first_careunit"] == unit]
-        fig_micu_sicu.add_trace(go.Bar(
-            y=unit_df["short_diag"], x=unit_df["count"],
-            name=unit, orientation="h",
-            marker_color=CHART_COLORS[i],
-            text=unit_df["count"], textposition="outside", textfont_size=8,
-        ))
+    fig_micu_sicu.add_trace(go.Bar(
+        y=pivot_df["short_diag"], x=-micu_vals,
+        name="MICU", orientation="h",
+        marker_color=CHART_COLORS[0],
+        text=micu_vals, textposition="outside", textfont_size=8,
+    ))
+    fig_micu_sicu.add_trace(go.Bar(
+        y=pivot_df["short_diag"], x=sicu_vals,
+        name="SICU", orientation="h",
+        marker_color=CHART_COLORS[1],
+        text=sicu_vals, textposition="outside", textfont_size=8,
+    ))
+    max_val = int(max(micu_vals.max(), sicu_vals.max()))
+    tick_step = max(1, max_val // 4)
+    tick_vals = list(range(-max_val, max_val + tick_step, tick_step))
+    tick_text = [str(abs(v)) for v in tick_vals]
     fig_micu_sicu.update_layout(
-        barmode="group", template=LIGHT_TEMPLATE,
-        margin=dict(l=10, r=30, t=30, b=30),
+        barmode="overlay", template=LIGHT_TEMPLATE,
+        margin=dict(l=10, r=60, t=30, b=30),
         yaxis={"categoryorder": "total ascending", "tickfont": {"size": 8}},
-        xaxis_title="Number of Admissions",
+        xaxis=dict(
+            title="Number of Admissions",
+            tickvals=tick_vals, ticktext=tick_text,
+        ),
         title="Top Diagnoses: MICU vs SICU", title_font_size=12,
         legend=dict(font=dict(size=9), orientation="h", y=-0.15),
     )

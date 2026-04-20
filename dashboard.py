@@ -527,11 +527,11 @@ def update_dashboard(careunits, los_cats, use_log):
             line_color=CHART_COLORS[i % len(CHART_COLORS)],
         ))
     fig_violin.update_layout(
-        template=LIGHT_TEMPLATE, showlegend=True,
-        margin=dict(l=40, r=10, t=30, b=35),
+        template=LIGHT_TEMPLATE, showlegend=False,
+        margin=dict(l=40, r=10, t=30, b=45),
         yaxis_title="LOS (days)", title="LOS Shape by Care Unit (Violin)",
         title_font_size=11, yaxis_type="linear",
-        legend=dict(font=dict(size=8), orientation="h", y=-0.25, x=0),
+        xaxis=dict(tickfont=dict(size=9), tickangle=0),
     )
 
     # Insight Q3

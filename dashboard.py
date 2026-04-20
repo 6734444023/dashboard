@@ -454,10 +454,10 @@ def update_dashboard(careunits, los_cats, use_log):
     all_tick_text = [str(v) for v in reversed(tick_vals[1:])] + [str(v) for v in tick_vals]
     fig_micu_sicu.update_layout(
         barmode="relative", template=LIGHT_TEMPLATE,
-        margin=dict(l=5, r=70, t=50, b=50),
-        yaxis=dict(tickfont=dict(size=10), automargin=True, categoryorder="array", categoryarray=sorted(pivot_df["diag_label"].tolist())),
+        margin=dict(l=5, r=70, t=20, b=20),
+        yaxis=dict(tickfont=dict(size=5), automargin=True, categoryorder="array", categoryarray=sorted(pivot_df["diag_label"].tolist())),
         xaxis=dict(
-            title=dict(text="Number of Admissions", standoff=15),
+            title=dict(text="Number of Admissions", standoff=20),
             tickvals=all_tick_vals, ticktext=all_tick_text,
             tickfont=dict(size=8),
             range=[-(max_val * 1.25), max_val * 1.25],

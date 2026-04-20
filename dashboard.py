@@ -278,7 +278,7 @@ app.layout = html.Div(
                                 "Avg LOS by Top Diagnoses",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="bar-avg-diag", config=GRAPH_CONFIG, style={"height": "380px"}),
+                            dcc.Graph(id="bar-avg-diag", config=GRAPH_CONFIG, style={"height": "300px"}),
                         ],
                     ),
                     md=3,
@@ -493,7 +493,7 @@ def update_dashboard(careunits, los_cats, use_log):
     )
 
     # ================================================================
-    # Supporting: Avg LOS by Top 10 Diagnoses (horizontal bar, each bar a different color with legend)
+    # Supporting: Avg LOS by Top 10 Diagnoses (horizontal bar)
     # ================================================================
     avg_los_by_diag = (
         dff[dff["long_title"].isin(top10_diag)]
@@ -505,32 +505,20 @@ def update_dashboard(careunits, los_cats, use_log):
     avg_los_by_diag.columns = ["Diagnosis", "Avg_LOS"]
     avg_los_by_diag["short"] = avg_los_by_diag["Diagnosis"].str[:30]
 
-    fig_avg_diag = go.Figure()
-    n = len(avg_los_by_diag)
-    for i, row in avg_los_by_diag.iterrows():
-        fig_avg_diag.add_trace(go.Bar(
-            x=[row["Avg_LOS"]],
-            y=[row["short"]],
-            orientation="h",
-            marker_color=CHART_COLORS[i % len(CHART_COLORS)],
-            name=row["Diagnosis"][:45],
-            text=f'{row["Avg_LOS"]:.1f}d',
-            textposition="outside",
-            textfont_size=9,
-            showlegend=True,
-        ))
+    fig_avg_diag = go.Figure(go.Bar(
+        x=avg_los_by_diag["Avg_LOS"],
+        y=avg_los_by_diag["short"],
+        orientation="h",
+        marker_color=CHART_COLORS[1],
+        text=avg_los_by_diag["Avg_LOS"].round(1).astype(str) + "d",
+        textposition="outside",
+        textfont_size=9,
+    ))
     fig_avg_diag.update_layout(
-        template=LIGHT_TEMPLATE, margin=dict(l=10, r=40, t=30, b=100),
+        template=LIGHT_TEMPLATE, margin=dict(l=10, r=40, t=10, b=30),
         xaxis_title="Avg LOS (days)", yaxis_title="",
         yaxis_tickfont_size=8,
-        title="Avg LOS by Top 10 Diagnoses", title_font_size=12,
-        legend=dict(
-            orientation="h",
-            yanchor="top", y=-0.25, xanchor="center", x=0.5,
-            font=dict(size=7),
-            traceorder="reversed",
-        ),
-        barmode="stack",
+        title="Avg LOS by Top 10 Diagnoses", title_font_size=6,
     )
 
     # ================================================================

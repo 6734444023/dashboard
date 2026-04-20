@@ -226,7 +226,8 @@ app.layout = html.Div(
                                 "Q1 – การวินิจฉัยโรคหลัก (Primary Diagnosis) ส่งผลต่อ LOS อย่างไร?",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
-                            dcc.Graph(id="box-diagnosis", config=GRAPH_CONFIG, style={"height": "260px"}),
+                            dcc.Graph(id="box-diagnosis", config=GRAPH_CONFIG, style={"height": "220px"}),
+                            html.Div(id="diag-key-1", style={"marginTop": "4px", "fontSize": "10px", "color": TEXT_MUTED, "lineHeight": "1.5"}),
                             html.Div(id="insight-1", style=INSIGHT_STYLE),
                         ],
                     ),
@@ -327,6 +328,7 @@ app.layout = html.Div(
     Output("kpi-max", "children"),
     Output("kpi-long-pct", "children"),
     Output("box-diagnosis", "figure"),
+    Output("diag-key-1", "children"),
     Output("insight-1", "children"),
     Output("bar-micu-sicu", "figure"),
     Output("insight-2", "children"),
@@ -372,23 +374,36 @@ def update_dashboard(careunits, los_cats, use_log):
     # ================================================================
     top10_diag = dff["long_title"].value_counts().head(10).index.tolist()
     q1_df = dff[dff["long_title"].isin(top10_diag)]
+    q1_code_map = {d: f"D{i+1}" for i, d in enumerate(top10_diag)}
     fig_box = go.Figure()
     for i, diag in enumerate(top10_diag):
         diag_data = q1_df[q1_df["long_title"] == diag]["los"]
-        short_name = diag[:30] + "…" if len(diag) > 30 else diag
         fig_box.add_trace(go.Box(
-            y=diag_data, name=short_name,
+            y=diag_data, name=q1_code_map[diag],
             marker_color=CHART_COLORS[i % len(CHART_COLORS)],
             line_color=CHART_COLORS[i % len(CHART_COLORS)],
             fillcolor=f"rgba({','.join(str(int(CHART_COLORS[i % len(CHART_COLORS)].lstrip('#')[j:j+2], 16)) for j in (0,2,4))},0.3)",
         ))
     fig_box.update_layout(
         template=LIGHT_TEMPLATE, showlegend=False,
-        margin=dict(l=30, r=10, t=30, b=80),
+        margin=dict(l=30, r=10, t=30, b=40),
         yaxis_title="LOS (days)", title="LOS Distribution by Primary Diagnosis (Top 10)",
         title_font_size=12, yaxis_type=yaxis_type,
-        xaxis_tickangle=-35, xaxis_tickfont_size=8,
+        xaxis_tickangle=0, xaxis_tickfont_size=10,
     )
+
+    # Build colored key for Q1 diagnoses
+    q1_key_items = []
+    for i, diag in enumerate(top10_diag):
+        color = CHART_COLORS[i % len(CHART_COLORS)]
+        q1_key_items.append(
+            html.Span([
+                html.Span("■ ", style={"color": color, "fontSize": "13px"}),
+                html.B(f"{q1_code_map[diag]}", style={"color": color}),
+                html.Span(f": {diag}  ", style={"color": TEXT_MUTED}),
+            ])
+        )
+    diag_key_1 = html.Div(q1_key_items, style={"display": "flex", "flexWrap": "wrap", "gap": "4px 12px"})
 
     # Insight Q1: compare diagnosis with highest vs lowest avg LOS
     avg_by_diag = q1_df.groupby("long_title")["los"].agg(["mean", "median"]).sort_values("mean", ascending=False)
@@ -643,7 +658,7 @@ def update_dashboard(careunits, los_cats, use_log):
 
     return (
         kpi_total, kpi_avg, kpi_median, kpi_max, kpi_long,
-        fig_box, insight_1,
+        fig_box, diag_key_1, insight_1,
         fig_micu_sicu, insight_2,
         fig_hist, fig_violin, insight_3,
         fig_avg_diag,

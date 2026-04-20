@@ -372,7 +372,7 @@ def update_dashboard(careunits, los_cats, use_log):
     # Q1: Box plot of LOS by Top 10 Diagnoses
     #     → answers "การวินิจฉัยโรคหลักส่งผลต่อ LOS อย่างไร?"
     # ================================================================
-    top10_diag = dff["long_title"].value_counts().head(10).index.tolist()
+    top10_diag = dff["long_title"].value_counts().head(5).index.tolist()
     q1_df = dff[dff["long_title"].isin(top10_diag)]
     q1_code_map = {d: f"D{i+1}" for i, d in enumerate(top10_diag)}
     fig_box = go.Figure()
@@ -387,7 +387,7 @@ def update_dashboard(careunits, los_cats, use_log):
     fig_box.update_layout(
         template=LIGHT_TEMPLATE, showlegend=False,
         margin=dict(l=30, r=10, t=30, b=40),
-        yaxis_title="LOS (days)", title="LOS Distribution by Primary Diagnosis (Top 10)",
+        yaxis_title="LOS (days)", title="LOS Distribution by Primary Diagnosis (Top 5)",
         title_font_size=12, yaxis_type=yaxis_type,
         xaxis_tickangle=0, xaxis_tickfont_size=10,
     )
@@ -573,8 +573,9 @@ def update_dashboard(careunits, los_cats, use_log):
     # ================================================================
     # Supporting: Avg LOS by Top 10 Diagnoses (horizontal bar)
     # ================================================================
+    top10_avg = dff["long_title"].value_counts().head(10).index.tolist()
     avg_los_by_diag = (
-        dff[dff["long_title"].isin(top10_diag)]
+        dff[dff["long_title"].isin(top10_avg)]
         .groupby("long_title")["los"]
         .mean()
         .sort_values(ascending=True)

@@ -512,7 +512,7 @@ def update_dashboard(careunits, los_cats, use_log):
     # ================================================================
     # Histogram colored by LOS category
     hist_data_short = dff[(dff["los"] <= 70) & (dff["los_category"] == "Short Stay")]["los"]
-    hist_data_long = dff[(dff["los"] <= 70) & (dff["los_category"] == "Long Stay")]["los"]
+    hist_data_long = dff[(dff["los"] >= 3) & (dff["los"] <= 70) & (dff["los_category"] == "Long Stay")]["los"]
 
     fig_hist = go.Figure()
     fig_hist.add_trace(go.Histogram(

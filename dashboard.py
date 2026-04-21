@@ -520,8 +520,9 @@ def update_dashboard(careunits, los_cats, use_log):
         marker_color=ACCENT_TEAL, opacity=0.75,
     ))
     fig_hist.add_trace(go.Histogram(
-        x=hist_data_long, nbinsx=35, name="Long Stay",
+        x=hist_data_long, name="Long Stay",
         marker_color=ACCENT_GOLD, opacity=0.75,
+        xbins=dict(start=3, end=70, size=2),
     ))
     fig_hist.update_layout(
         barmode="overlay", template=LIGHT_TEMPLATE,

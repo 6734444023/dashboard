@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import Dash, html, dcc, Input, Output, callback
+from dash import Dash, html, dcc, Input, Output, callback, clientside_callback
 import dash_bootstrap_components as dbc
 
 # ---------------------------------------------------------------------------
@@ -64,6 +64,35 @@ app = Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
 app.title = "ICU Length of Stay (LOS) & Diagnosis Analysis"
 server = app.server  # for gunicorn
 
+# Inject print CSS so charts and layout render cleanly when printing to PDF
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            @media print {
+                .no-print { display: none !important; }
+                body { background: #f0f4f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .dash-graph { page-break-inside: avoid; }
+                @page { size: A3 landscape; margin: 10mm; }
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
 PANEL_STYLE = {
     "backgroundColor": BG_CARD,
     "borderRadius": "12px",
@@ -121,7 +150,24 @@ app.layout = html.Div(
                                 "ICU Length of Stay (LOS) & Diagnosis Analysis",
                                 style={"fontSize": "22px", "fontWeight": "700", "color": TEXT_WHITE},
                             ),
-                        ]
+                            html.Button(
+                                "⬇ Export PDF",
+                                id="btn-export-pdf",
+                                className="no-print",
+                                style={
+                                    "marginLeft": "16px",
+                                    "padding": "6px 14px",
+                                    "backgroundColor": ACCENT_TEAL,
+                                    "color": "white",
+                                    "border": "none",
+                                    "borderRadius": "6px",
+                                    "fontSize": "12px",
+                                    "cursor": "pointer",
+                                    "verticalAlign": "middle",
+                                },
+                            ),
+                        ],
+                        style={"display": "flex", "alignItems": "center"},
                     ),
                     md=6,
                 ),
@@ -674,6 +720,16 @@ def update_dashboard(careunits, los_cats, use_log):
         breakdown,
     )
 
+
+# ---------------------------------------------------------------------------
+# PDF Export – client-side print trigger
+# ---------------------------------------------------------------------------
+clientside_callback(
+    "function(n) { if (n) { window.print(); } return null; }",
+    Output("btn-export-pdf", "data-printed"),
+    Input("btn-export-pdf", "n_clicks"),
+    prevent_initial_call=True,
+)
 
 # ---------------------------------------------------------------------------
 # Run

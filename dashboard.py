@@ -536,6 +536,11 @@ def update_dashboard(careunits, los_cats, use_log):
         ),
         bargap=0.03,
     )
+    fig_hist.add_vline(
+        x=3, line_dash="dash", line_color=ACCENT_GOLD, line_width=1.5,
+        annotation_text="≤3d Short", annotation_position="top right",
+        annotation_font=dict(size=8, color=ACCENT_GOLD),
+    )
 
     # Violin plot by care unit (shows shape of distribution per unit)
     top_units = dff["first_careunit"].value_counts().head(5).index.tolist()

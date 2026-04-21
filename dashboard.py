@@ -451,14 +451,14 @@ def update_dashboard(careunits, los_cats, use_log):
         )
     diag_key_1 = html.Div(q1_key_items, style={"display": "flex", "flexWrap": "wrap", "gap": "4px 12px"})
 
-    # Insight Q1: compare diagnosis with highest vs lowest avg LOS
     avg_by_diag = q1_df.groupby("long_title")["los"].agg(["mean", "median"]).sort_values("mean", ascending=False)
-    longest_diag = avg_by_diag.index[0][:40]
-    shortest_diag = avg_by_diag.index[-1][:40]
     insight_1 = (
-        f'Insight Q1: "{longest_diag}" has the highest avg LOS ({avg_by_diag.iloc[0]["mean"]:.1f}d, '
-        f'median {avg_by_diag.iloc[0]["median"]:.1f}d), while "{shortest_diag}" has the lowest '
-        f'({avg_by_diag.iloc[-1]["mean"]:.1f}d). Diagnosis type significantly influences ICU stay duration.'
+        "Q1. การวินิจฉัยโรคหลักส่งผลต่อการใช้เตียงอย่างมีนัยสำคัญ โดยเฉพาะกลุ่มโรคติดเชื้อ (Sepsis/D1) "
+        "ซึ่งเป็นโรคที่พบบ่อยที่สุดโดยครองเตียงเฉลี่ยนานที่สุดและมีความผันผวนสูงที่สุด "
+        "แตกต่างจากกลุ่มโรคอื่นๆ ที่พบเจอได้น้อยลงมา โดยโรคเหล่านั้นใช้เวลาครองเตียงสั้นและคงที่กว่า "
+        "แต่ทั้งนี้ก็ต้องดูสัดส่วนการกระจายและความรุนแรงของโรคแต่ละชนิดควบคู่ด้วย "
+        "เพราะจากกราฟจะเห็นว่าบางโรคที่พบบ่อยอาจมีการกระจายตัวที่น้อยกว่าโรคที่พบน้อยกว่าก็ได้ "
+        "แต่จากการศึกษากราฟแล้วแนวโน้มจะออกไปทางโรคที่เจอบ่อยจะมีค่าเฉลี่ยและการกระจายตัวที่สูงกว่าโรคที่พบน้อยกว่า"
     )
 
     # ================================================================
@@ -544,12 +544,11 @@ def update_dashboard(careunits, los_cats, use_log):
     )
 
     # Insight Q2
-    micu_top1 = micu_top5.index[0][:40] if len(micu_top5) else "N/A"
-    sicu_top1 = sicu_top5.index[0][:40] if len(sicu_top5) else "N/A"
     insight_2 = (
-        f'Insight Q2: MICU top diagnosis is "{micu_top1}" ({micu_top5.iloc[0]:,}), '
-        f'while SICU top is "{sicu_top1}" ({sicu_top5.iloc[0]:,}). '
-        f"Disease profiles differ significantly between medical and surgical ICUs."
+        "Q2. จากกราฟจะเห็นว่าโรคฝั่ง MICU มักจะเป็นโรคติดเชื้อหรือภาวะล้มเหลวของอวัยวะ "
+        "(เช่น D7 Sepsis, D1 Kidney failure) "
+        "ขณะที่ SICU จะหนักไปทางภาวะเลือดออกในสมองหรือความผิดปกติทางสมอง "
+        "(D3 Cerebral/D5 Intracerebral)"
     )
 
     # ================================================================
@@ -617,9 +616,11 @@ def update_dashboard(careunits, los_cats, use_log):
     pct_over30 = (dff["los"] > 30).sum() / total * 100 if total else 0
     pct_over70 = (dff["los"] > 70).sum() / total * 100 if total else 0
     insight_3 = (
-        f"Insight Q3: {pct_under7:.1f}% of patients stay ≤7 days (routine cases), "
-        f"while {pct_over30:.1f}% stay >30 days and {pct_over70:.1f}% exceed 70 days. "
-        f"The wide variation reflects a mix of short acute episodes and complex chronic conditions requiring extended ICU care."
+        "Q3. จากกราฟพบว่าผู้ป่วยส่วนใหญ่ใช้เวลาครองเตียงเพียง 3.1–3.9 วัน "
+        "แต่ในขณะเดียวกัน ทุกแผนกกลับมีกลุ่มผู้ป่วยวิกฤตที่มีระยะเวลารักษายืดเยื้อสูงสุด (Max) "
+        "ลากยาวตั้งแต่ 58 ไปจนถึงเกือบ 70 วัน "
+        "ข้อมูลนี้สะท้อนชัดเจนว่า ระบบต้องจัดการกับปริมาณเคสที่หมุนเวียนอย่างรวดเร็วจำนวนมากไปพร้อมๆ กัน "
+        "และในขณะเดียวกันก็ต้องเผชิญกับปัญหาผู้ป่วยที่มีอาการซับซ้อนซึ่งต้องการการดูแลรักษาเป็นเวลานานอย่างเคร่งครัด"
     )
 
     # ================================================================

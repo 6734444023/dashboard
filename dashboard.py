@@ -223,7 +223,7 @@ app.layout = html.Div(
                         style=PANEL_STYLE,
                         children=[
                             html.Div(
-                                "Q1 – การวินิจฉัยโรคหลัก (Primary Diagnosis) ส่งผลต่อ LOS อย่างไร?",
+                                "Q1 – การวินิจฉัยโรคหลัก (Primary Diagnosis) ส่งผลต่อ LOS จริงหรือไม่?",
                                 style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "13px", "marginBottom": "4px"},
                             ),
                             dcc.Graph(id="box-diagnosis", config=GRAPH_CONFIG, style={"height": "220px"}),

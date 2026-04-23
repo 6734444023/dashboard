@@ -556,13 +556,14 @@ def update_dashboard(careunits, los_cats, use_log):
     #     → answers "ความแตกต่างของ LOS สะท้อนอะไร?"
     # ================================================================
     # Histogram colored by LOS category
-    hist_data_short = dff[(dff["los"] <= 70) & (dff["los_category"] == "Short Stay")]["los"]
+    hist_data_short = dff[(dff["los"] <= 3) & (dff["los_category"] == "Short Stay")]["los"]
     hist_data_long = dff[(dff["los"] >= 3) & (dff["los"] <= 70) & (dff["los_category"] == "Long Stay")]["los"]
 
     fig_hist = go.Figure()
     fig_hist.add_trace(go.Histogram(
-        x=hist_data_short, nbinsx=35, name="Short Stay",
+        x=hist_data_short, name="Short Stay",
         marker_color=ACCENT_TEAL, opacity=0.75,
+        xbins=dict(start=0, end=3, size=1),
     ))
     fig_hist.add_trace(go.Histogram(
         x=hist_data_long, name="Long Stay",
@@ -575,7 +576,7 @@ def update_dashboard(careunits, los_cats, use_log):
         xaxis_title="LOS (days)", yaxis_title="",
         title="LOS Distribution by Category", title_font_size=11,
         legend=dict(font=dict(size=8), orientation="h", y=1.0, x=1.0, xanchor="right", bgcolor="rgba(0,0,0,0)"),
-        xaxis=dict(range=[0, 72], tickvals=[3, 10, 30, 70], tickfont=dict(size=8)),
+        xaxis=dict(range=[0, 72], tickvals=[0, 1, 2, 3, 10, 30, 70], tickfont=dict(size=8)),
         yaxis=dict(
             tickfont=dict(size=8), automargin=True, type=yaxis_type, rangemode="tozero",
             **({"tickvals": [1, 10, 100, 1000, 10000], "ticktext": ["1", "10", "100", "1k", "10k"]} if use_log else {"tickvals": [2000, 4000, 6000, 8000, 10000]}),

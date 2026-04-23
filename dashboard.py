@@ -579,7 +579,7 @@ def update_dashboard(careunits, los_cats, use_log):
         xaxis=dict(range=[0, 72], tickvals=[0, 1, 2, 3, 10, 30, 70], tickfont=dict(size=8)),
         yaxis=dict(
             tickfont=dict(size=8), automargin=True, type=yaxis_type, rangemode="tozero",
-            **({"tickvals": [1, 10, 100, 1000, 50000,10000,15000,20000,25000,30000], "ticktext": ["5k", "10k", "15k", "20k", "25k", "30k"]} if use_log else {"tickvals": [50000,10000,15000,20000,25000,30000]}),
+            **({"tickvals": [1, 10, 100, 1000, 50000,10000,15000,20000,25000,30000], "ticktext": ["0","5k", "10k", "15k", "20k", "25k", "30k","35k"]} if use_log else {"tickvals": [50000,10000,15000,20000,25000,30000]}),
         ),
         bargap=0.03,
     )

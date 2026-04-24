@@ -338,18 +338,19 @@ app.layout = html.Div(
                         children=[
                             html.Div(
                                 "SUMMARY & RECOMMENDATION",
-                                style={"color": ACCENT_GOLD, "fontWeight": "700", "fontSize": "14px", "marginBottom": "12px"},
+                                style={"color": ACCENT_GOLD, "fontWeight": "700", "fontSize": "14px", "marginBottom": "6px"},
+                            ),
+                            html.Div(
+                                "Insights from Q1–Q3 + Action Items",
+                                style={"color": TEXT_MUTED, "fontSize": "10px", "marginBottom": "10px"},
+                            ),
+                            html.Div(id="summary-takeaways", style={"marginBottom": "10px"}),
+                            html.Div(
+                                "LOS Breakdown:",
+                                style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "11px", "marginBottom": "6px"},
                             ),
                             html.Div(
                                 [
-                                    html.Div("Key Takeaways:", style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "12px", "marginBottom": "6px"}),
-                                    html.Div(id="summary-takeaways"),
-                                ],
-                                style={"marginBottom": "10px"},
-                            ),
-                            html.Div(
-                                [
-                                    html.Div("LOS Category Breakdown:", style={"color": ACCENT_TEAL, "fontWeight": "600", "fontSize": "12px", "marginBottom": "6px"}),
                                     html.Div(id="summary-breakdown"),
                                 ],
                             ),
@@ -677,36 +678,69 @@ def update_dashboard(careunits, los_cats, use_log):
     long_pct_cat = long_count / total * 100 if total else 0
     busiest = dff["first_careunit"].value_counts().idxmax() if total else "N/A"
 
-    takeaways = html.Ol(
+    top_diag_name = avg_by_diag.index[0] if len(avg_by_diag) > 0 else "N/A"
+    top_diag_avg = avg_by_diag.iloc[0]["mean"] if len(avg_by_diag) > 0 else 0
+    bot_diag_avg = avg_by_diag.iloc[-1]["mean"] if len(avg_by_diag) > 1 else 0
+    micu_top_diag = micu_top5.index[0] if len(micu_top5) > 0 else "N/A"
+    sicu_top_diag = sicu_top5.index[0] if len(sicu_top5) > 0 else "N/A"
+
+    def _block(q_label, insight_text, rec_text):
+        return html.Div(
+            [
+                html.Div(q_label, style={"color": ACCENT_TEAL, "fontWeight": "700", "fontSize": "11px", "marginBottom": "2px"}),
+                html.Div(insight_text, style={"color": TEXT_MUTED, "fontSize": "10px", "marginBottom": "2px", "lineHeight": "1.5"}),
+                html.Div(
+                    ["→ ", html.Span(rec_text, style={"color": TEXT_WHITE})],
+                    style={"fontSize": "10px", "color": ACCENT_GOLD, "lineHeight": "1.5"},
+                ),
+            ],
+            style={"marginBottom": "10px", "borderLeft": f"3px solid {ACCENT_TEAL}", "paddingLeft": "8px"},
+        )
+
+    takeaways = html.Div(
         [
-            html.Li(
-                f"Q1: Primary diagnosis strongly influences LOS – avg LOS ranges from "
-                f"{avg_by_diag.iloc[-1]['mean']:.1f}d to {avg_by_diag.iloc[0]['mean']:.1f}d across top diagnoses.",
-                style={"color": TEXT_MUTED, "fontSize": "11px", "marginBottom": "4px"},
+            _block(
+                "Q1 – Primary Diagnosis & LOS",
+                f"โรคที่พบบ่อยที่สุด (Sepsis/Infection) ครองเตียงเฉลี่ยนานที่สุด "
+                f"({top_diag_avg:.1f}d) และมีความผันผวนสูง ขณะที่โรคที่พบน้อยกว่า "
+                f"ใช้เวลาสั้นกว่า ({bot_diag_avg:.1f}d) และคงที่กว่า",
+                "จัดลำดับความสำคัญการจัดสรรเตียงตามกลุ่มโรคที่มี avg LOS สูง "
+                "และวางแผน Discharge Planning ล่วงหน้าสำหรับกลุ่ม Sepsis",
             ),
-            html.Li(
-                f"Q2: MICU and SICU have distinct disease profiles; "
-                f"MICU skews toward medical conditions, SICU toward surgical/trauma.",
-                style={"color": TEXT_MUTED, "fontSize": "11px", "marginBottom": "4px"},
+            _block(
+                "Q2 – MICU vs SICU Disease Profile",
+                f"MICU: โรคติดเชื้อ/ไตวาย ('{micu_top_diag[:35]}…') พบมากสุด  "
+                f"SICU: ภาวะเลือดออกในสมอง ('{sicu_top_diag[:35]}…') โดดเด่น "
+                "สะท้อนความต้องการทรัพยากรที่แตกต่างกันชัดเจน",
+                "กำหนด Protocol การรับ-ส่งเคสระหว่าง MICU/SICU ตามประเภทโรค "
+                "เพื่อลดการใช้เตียงผิดประเภทและเพิ่มประสิทธิภาพการดูแล",
             ),
-            html.Li(
-                f"Q3: {pct_under7:.0f}% stay ≤7d (acute), {pct_over30:.1f}% stay >30d (complex). "
-                f"The variation reflects case severity and diagnosis type.",
-                style={"color": TEXT_MUTED, "fontSize": "11px"},
+            _block(
+                "Q3 – LOS Variation & Outliers",
+                f"ผู้ป่วย {pct_under7:.0f}% อยู่ ≤7 วัน (เคสหมุนเร็ว) "
+                f"แต่มีกลุ่ม {pct_over30:.1f}% อยู่ >30 วัน และมี Outlier ยาวถึง ~70 วัน "
+                "ในทุกแผนก สะท้อนภาระคู่ขนานของระบบ",
+                "ใช้ Early-Warning Score เพื่อระบุเคสเสี่ยงยืดเยื้อตั้งแต่วันแรก "
+                "และจัดทีม Complex Case Management สำหรับกลุ่ม >30 วัน",
             ),
-        ],
-        style={"paddingLeft": "16px"},
+        ]
     )
 
     breakdown = html.Div(
         [
             html.Div(
-                f"Short Stay: {short_count:,} ({short_pct:.1f}%)",
-                style={"color": ACCENT_TEAL, "fontSize": "12px", "marginBottom": "4px"},
+                [
+                    html.Span("Short Stay: ", style={"color": ACCENT_TEAL, "fontWeight": "600"}),
+                    html.Span(f"{short_count:,} ({short_pct:.1f}%)", style={"color": TEXT_WHITE}),
+                    html.Span("  |  ", style={"color": BORDER_COLOR}),
+                    html.Span("Long Stay: ", style={"color": ACCENT_GOLD, "fontWeight": "600"}),
+                    html.Span(f"{long_count:,} ({long_pct_cat:.1f}%)", style={"color": TEXT_WHITE}),
+                ],
+                style={"fontSize": "11px", "marginBottom": "6px"},
             ),
             html.Div(
-                f"Long Stay: {long_count:,} ({long_pct_cat:.1f}%)",
-                style={"color": ACCENT_GOLD, "fontSize": "12px"},
+                f"Busiest unit: {busiest}",
+                style={"color": TEXT_MUTED, "fontSize": "10px"},
             ),
         ]
     )
